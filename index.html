@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Breakout</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+			}
+			canvas {
+				background: #eeeeee;
+			}
+			body {
+				background: #333333;
+			}
+		</style>
+	</head>
+<body>
+<div>
+	<canvas id="cv" width="320" height="440"></canvas>
+</div>
+
+<script src="//code.jquery.com/jquery-1.11.2.min.js"></script>
+<!-- <script src="seedrandom.min.js" type="text/javascript"></script> -->
+<script>
+
+function Game( board ){
+
+	this.board = board;
+	this.entities = [];
+	this.addEntity = function( options ) {
+		this.entities.push( new Entity( options ) );
+	}
+
+	this.update = function() {
+		this.board.ctx.clearRect(0, 0, 320, 440);
+
+		for (var i = 0; i < this.entities.length; i++) {
+			this.entities[ i ].update( this );
+		}
+		requestAnimationFrame( this.update.bind(this) );
+	}
+	this.start = function() {
+		this.update();
+	}
+}
+
+function Entity( options ) {
+	
+	this.type = 'Generic Entity';
+	this.pos = {
+		x: null,
+		y: null,
+		z: null,
+	}
+	this.velocity = 0;
+	this.friction = 5/100;
+	this.bearing = Math.PI/2;//up
+	this.bearingChanged = false;
+	this.angle = Math.PI/2;//up
+	this.angleoffset = 90;
+	this.visible = false;
+	this.hp = Number.POSITIVE_INFINITY;//int, infinite if left undefined
+	this.ability = [];//array of functions
+	this.aggression = 0;// 0 <= % <= 1
+	this.vision = 0;// pixels
+	this.range = 0;// pixels/units
+	this.debug = false;
+	this.updates = 0;//times update function called
+	this.appearance = null;
+	this.stats = null;
+	
+	this.move = function() {
+		
+	};
+	
+	this.collision = function() {
+		
+	};
+	
+	this.draw = function() {
+		
+	};
+	
+	this.update = function() {
+		
+	};
+
+	for (var prop in options) {
+		if ( this.hasOwnProperty( prop ) ) {
+			this[ prop ] = options[ prop ];
+		}
+	}
+	
+	return this;
+}
+
+function Board() {
+	this.canvas = null;
+	this.ctx = null;
+}
+
+var board = new Board();
+board.canvas = document.getElementById('cv');
+board.ctx = board.canvas.getContext('2d');
+var g = new Game( board );
+
+function randomBytes( bytecount, base ) {
+	var bytes = "";
+	for (var i = 0; i < bytecount; i++) {
+		var newbyte = "" + Math.floor( Math.random() * 256 ).toString( base == 2 || base == 16 ? base : '' );
+		if( newbyte.length === 1 ){
+			newbyte = "0" + newbyte;
+		}
+		bytes += newbyte;
+
+	}
+	return bytes;
+}
+
+function randomColor() {
+	var val = "#" + randomBytes( 3, 16 );
+	return val;
+}
+
+
+function colorLuminance(hex, lum) {
+
+	// validate hex string
+	hex = String(hex).replace(/[^0-9a-f]/gi, '');
+	if (hex.length < 6) {
+		hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+	}
+	lum = lum || 0;
+
+	// convert to decimal and change luminosity
+	var rgb = "#", c, i;
+	for (i = 0; i < 3; i++) {
+		c = parseInt(hex.substr(i*2,2), 16);
+		c = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+		rgb += ("00"+c).substr(c.length);
+	}
+
+	return rgb;
+}
+
+function Brick( posx, posy, w, h, vis ) {
+	this.type = 'brick';
+	this.pos = {
+		x: posx,
+		y: posy,
+		z: 1
+	};
+	this.visible = vis > 0.5 ? true : false;
+	
+	this.appearance = {
+		color: randomColor(),
+		width: w,
+		height: h,
+	};
+	
+	this.collision = function( game ) {
+			}
+	
+	this.update = function( game ) {
+		if( this.visible ){
+			this.collision( game );
+			this.draw( game, this );
+		}
+	}
+	
+	this.draw = function( game, entity ) {
+		if( this.visible ){
+			game.board.ctx.beginPath();
+			game.board.ctx.fillStyle = this.appearance.color;
+			//game.board.ctx.strokeStyle = '';
+			game.board.ctx.fillRect( this.pos.x, this.pos.y, this.appearance.width, this.appearance.height );
+			game.board.ctx.fill();
+			game.board.ctx.closePath();
+		}
+	}
+}
+
+function Ball() {
+	this.type = 'ball';
+	this.pos = {
+		x: document.getElementById('cv').width / 2,
+		xdelta: 0,
+		y: document.getElementById('cv').height * 0.95,
+		ydelta: 0,
+		z: 1,
+		previous: [],
+	};
+	this.velocity = 2;
+	this.friction = 5;
+	this.bearing = Math.PI / 4; //Math.PI / 2 - Math.PI / 4 * Math.random() + Math.PI / 4 * Math.random();//up
+	this.bearingChanged = false;
+	this.angle = Math.PI/2;//up
+	this.angleoffset = 90;
+	this.visible = true;
+	this.hp = Number.POSITIVE_INFINITY;//int, infinite if left undefined
+	this.ability = [];//array of functions
+	this.aggression = 0;// 0 <= % <= 1
+	this.vision = 0;// pixels
+	this.range = 0;// pixels/units
+	this.debug = false;
+	this.updates = 0;//times update function called
+	this.appearance = {
+		radius: 4,
+		color: 'black',
+	};
+	this.stats = {
+		velocityCountdown: 0,
+	};
+	this.stats.originalVelocity = this.velocity;
+	
+	this.collision = {
+		top: function(){
+			// Top Canvas Border
+			this.bearingChanged = true;
+			var bearingDiff = this.bearing - Math.PI;
+			this.bearing = Math.PI - bearingDiff;
+			// this.bearing %= Math.PI * 2;
+		},
+		bottom: function(){
+			// Bottom Canvas Border
+			this.bearingChanged = true;
+			var bearingDiff = this.bearing - Math.PI;
+			this.bearing = Math.PI - bearingDiff;
+			// this.bearing %= Math.PI * 2;
+		},
+		left: function(){
+			// Left Canvas Border
+			this.bearingChanged = true;
+			var bearingDiff = this.bearing - Math.PI * 1.5;
+			this.bearing = Math.PI * 1.5 - bearingDiff;
+			// this.bearing %= Math.PI * 2;
+		},
+		right: function(){
+			// Right Canvas Border
+			this.bearingChanged = true;
+			var bearingDiff = this.bearing - Math.PI * 1.5;
+			this.bearing = Math.PI * 1.5 - bearingDiff;
+			// this.bearing %= Math.PI * 2;
+		},
+		check: function( game ){
+			for (var i = 0; i < game.entities.length; i++) {
+				if( this.bearingChanged === false && game.entities[i].type == 'brick' && game.entities[i].visible == true ){
+					if( this.pos.x + this.pos.xdelta > game.entities[i].pos.x &&
+							this.pos.x + this.pos.xdelta < game.entities[i].pos.x + game.entities[i].appearance.width &&
+							this.pos.y + this.pos.ydelta > game.entities[i].pos.y &&
+							this.pos.y + this.pos.ydelta < game.entities[i].pos.y + game.entities[i].appearance.height ){
+
+
+					// if( this.pos.x + this.pos.xdelta - this.appearance.radius <= game.entities[i].pos.x + game.entities[i].appearance.width &&
+					// game.entities[i].pos.x <= this.pos.x + this.pos.xdelta + this.appearance.radius &&
+					// this.pos.y + this.pos.ydelta - this.appearance.radius <= game.entities[i].pos.y + game.entities[i].appearance.height &&
+					// game.entities[i].pos.y <= this.pos.y + this.pos.ydelta + this.appearance.radius ){
+
+
+						var ldist = Math.abs( this.pos.x + this.pos.xdelta - game.entities[i].pos.x );
+						var rdist = Math.abs( this.pos.x + this.pos.xdelta - game.entities[i].pos.x + game.entities[i].appearance.width );
+						var tdist = Math.abs( this.pos.y + this.pos.ydelta - game.entities[i].pos.y );
+						var bdist = Math.abs( this.pos.y + this.pos.ydelta - game.entities[i].pos.y + game.entities[i].appearance.height );
+
+						var smallest_val = Infinity;
+						var direction = "none";
+						if( ldist < smallest_val ){
+							smallest_val = ldist;
+							direction = "right";
+						}
+						if( rdist < smallest_val ){
+							smallest_val = rdist;
+							direction = "left";
+						}
+						if( tdist < smallest_val ){
+							smallest_val = tdist;
+							direction = "bottom";
+						}
+						if( bdist < smallest_val ){
+							smallest_val = bdist;
+							direction = "top";
+						}
+
+							console.log('activated ' + direction + ' collision function');
+							console.log( 'ldist: ' + ldist );
+							console.log( 'rdist: ' + rdist );
+							console.log( 'tdist: ' + tdist );
+							console.log( 'bdist: ' + bdist );
+
+						this.bearingChanged = true;
+						this.collision[ direction ].bind( this )();
+						game.entities[i].visible = false;
+
+
+						// Slow Motion / Slowmo
+						// this.velocity = 0.001;
+						// this.stats.velocityCountdown = 120;
+
+						// var leftorright = Math.abs( ( this.pos.x + this.pos.xdelta - game.entities[i].pos.x ) / ( ( game.entities[i].pos.x + game.entities[i].appearance.width ) - game.entities[i].pos.x ) );
+						// var toporbottom = Math.abs( ( this.pos.y + this.pos.ydelta - game.entities[i].pos.y) / ( ( game.entities[i].pos.y + game.entities[i].appearance.height ) - game.entities[i].pos.y ) );
+						// if( Math.abs( 0.5 - toporbottom ) >= Math.abs( 0.5 - leftorright ) ){
+						// 	// The ball is closer to the top or the bottom of the block.
+						// 	if( Math.round( toporbottom ) === 0 ){
+						// 		this.bearingChanged = true;
+						// 		this.collision.bottom.bind( this )();
+						// 		game.entities[i].visible = false;
+						// 	} else
+						// 	if( Math.round( toporbottom ) === 1 ){
+						// 		this.bearingChanged = true;
+						// 		this.collision.top.bind( this )();
+						// 		game.entities[i].visible = false;
+						// 	}
+						// } else {
+						// 	// The ball is closer to the left or the right of the block.
+						// 	if( Math.round( leftorright ) === 0 ){
+						// 		this.bearingChanged = true;
+						// 		this.collision.right.bind( this )();
+						// 		game.entities[i].visible = false;
+						// 	} else
+						// 	if( Math.round( leftorright ) === 1 ){
+						// 		this.bearingChanged = true;
+						// 		this.collision.left.bind( this )();
+						// 		game.entities[i].visible = false;
+						// 	}
+						// }
+					}
+				}
+			};
+		},
+	};
+	
+	this.update = function( game ) {
+		this.updates++;
+		this.bearingChanged = false;
+		// this.bearing += Math.sin( this.updates * ( Math.PI / 180 ) ) * ( Math.PI / 60 );
+		if( this.stats.velocityCountdown > 0 ){
+			this.stats.velocityCountdown--;
+		}
+		if( this.stats.velocityCountdown < 0){
+			this.stats.velocityCountdown = 0;
+			// this.velocity = this.stats.originalVelocity;// uncomment for immediate reset of velocity, re-comment freeze.
+		}
+
+		// Freeze on hit
+		if( this.stats.velocityCountdown == 0 && this.velocity < this.stats.originalVelocity ){
+			this.velocity *= 1.05;//this.stats.originalVelocity;
+		}
+		if( this.velocity > this.stats.originalVelocity ){
+			this.velocity = this.stats.originalVelocity;
+		}
+		////
+
+		this.pos.xdelta = 0, this.pos.ydelta = 0;
+		this.pos.xdelta += Math.cos( this.bearing ) * this.velocity;
+		// this.pos.y += ( this.bearing > Math.PI ? -2 : 0 ) - Math.sin( this.bearing ) * this.velocity;// + this.friction;
+		// ^^ use this to create a slower approach toward the paddle - a bonus.
+		this.pos.ydelta += -Math.sin( this.bearing ) * this.velocity;// + this.friction;
+
+		var cvw = document.getElementById('cv').width;
+		var cvh = document.getElementById('cv').height;
+		// Top Canvas Border
+		if( this.pos.ydelta + this.pos.y - this.appearance.radius < 0 ) {
+			this.collision.top.bind( this )();
+		}
+		// Bottom Canvas Border
+		if( this.pos.ydelta + this.pos.y + this.appearance.radius > cvh ) {
+			this.collision.bottom.bind( this )();
+		}
+		// Left Canvas Border
+		if( this.pos.xdelta + this.pos.x - this.appearance.radius < 0 ) {
+			this.collision.left.bind( this )();
+		}
+		// Right Canvas Border
+		if( this.pos.xdelta + this.pos.x + this.appearance.radius > cvw ) {
+			this.collision.right.bind( this )();
+		}
+
+		this.collision.check.bind( this, game )()
+
+		if( this.updates % 1 == 0) {
+			this.pos.previous.push({x: this.pos.x, y: this.pos.y});
+			if( this.pos.previous.length > 5 ) {
+				this.pos.previous.shift();
+			}
+		}
+		this.pos.x += this.pos.xdelta;
+		this.pos.y += this.pos.ydelta;
+
+		this.draw( game, this );
+	}
+	
+	this.draw = function( game, entity ) {
+		for (var i = 0; i < this.pos.previous.length; i++) {
+			game.board.ctx.beginPath();
+			game.board.ctx.fillStyle = colorLuminance( this.appearance.color, i * 0.05 / 100 );
+			//game.board.ctx.strokeStyle = '';
+			game.board.ctx.arc( this.pos.previous[i].x, this.pos.previous[i].y, this.appearance.radius, Math.PI / 2, Math.PI * 2.5);
+			game.board.ctx.fill();
+			game.board.ctx.closePath();
+		}
+		game.board.ctx.beginPath();
+		game.board.ctx.fillStyle = this.appearance.color;
+		//game.board.ctx.strokeStyle = '';
+		game.board.ctx.arc( this.pos.x, this.pos.y, this.appearance.radius, Math.PI / 2, Math.PI * 2.5);
+		game.board.ctx.fill();
+		game.board.ctx.closePath();
+	}
+}
+
+
+for (var i = 0; i < 1; i++) {
+	g.addEntity( new Ball() );
+}
+
+var brickw = document.getElementById('cv').width / 10;
+var brickh = document.getElementById('cv').height / 30;
+
+for (var rows = 0; rows < 15; rows++) {
+	for (var i = 0; i < 10; i++) {
+		g.addEntity( new Brick(brickw * i, brickh*rows, brickw, brickh, 1 ) );
+	}
+}
+
+
+
+/*
+g.addEntity({
+	type: 'Cylinder',
+	pos: {
+		x: document.getElementById('cv').width / 2,
+		y: document.getElementById('cv').width / 2,
+		z: 1,
+	},
+	visible: true,
+	angle: 0,
+	angleoffset: -90,
+	velocity: 0,
+	friction: 3/100,
+	updates: 0,
+	appearance: {
+		radius: 100,
+		holes: 6,
+		holesize: 25,
+		holedistance: 65,
+	},
+	draw: function( game, ent ) {
+console.log('angle: ' + this.angle );
+		game.board.ctx.beginPath();
+		//game.board.ctx.moveTo( this.pos.x, this.pos.y );
+		game.board.ctx.fillStyle = '#333';
+		game.board.ctx.strokeStyle = '#111';
+		game.board.ctx.arc( this.pos.x, this.pos.y, this.appearance.radius, 0, 2*Math.PI);
+		game.board.ctx.lineWidth=1;
+		game.board.ctx.stroke();
+		//game.board.ctx.fill();
+		game.board.ctx.closePath();
+		
+		for(var i = 0; i < this.appearance.holes; i++){
+			var cx = Math.cos( ( ( Math.PI / 180 ) * (360 / this.appearance.holes * i) ) + ( ( Math.PI / 180 ) * -this.angle ) + ( ( Math.PI / 180 ) * this.angleoffset ) ) * this.appearance.holedistance + this.pos.x;
+			var cy = Math.sin( ( ( Math.PI / 180 ) * (360 / this.appearance.holes * i) ) + ( ( Math.PI / 180 ) * -this.angle ) + ( ( Math.PI / 180 ) * this.angleoffset ) ) * this.appearance.holedistance + this.pos.y;
+
+			var fill = ['red','orange','yellow','green','blue','teal','purple','brown','pink','black','grey','white'];
+			
+			game.board.ctx.beginPath();
+			game.board.ctx.fillStyle = '#333';
+			game.board.ctx.strokeStyle = fill[i];
+			game.board.ctx.arc( cx, cy, this.appearance.holesize, Math.PI / 2, Math.PI * 2.5);
+			game.board.ctx.stroke();
+			game.board.ctx.closePath();
+		}
+	},
+	update: function( game ) {
+		this.velocity *= 1 - this.friction;
+		if( this.velocity < 5 && this.angle % ( 360 / this.appearance.holes ) < 5 ){
+		// make the cylinder stop on the correct slot
+			this.velocity = 0;
+			this.angle -= this.angle % ( 360 / this.appearance.holes );
+			// this.angle -= 90;
+		}
+
+		this.angle += this.velocity;
+		
+		if( this.angle >= 360 ){
+		// keeping angle under 361 degrees but identical
+			this.angle -= 360;
+		}
+		this.draw( game, this );
+	},
+	spin: function() {
+		this.velocity += 20 + Math.random() * 30;
+	}
+});
+
+*/
+
+g.start();
+
+g.board.canvas.addEventListener('click', function(){
+	// alert('spin!');
+	// alert(g.entities[0].type);
+	// g.entities = [];
+});
+
+
+</script>
+</body>
+</html>
