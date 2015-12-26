@@ -25,87 +25,11 @@
 <!-- <script src="seedrandom.min.js" type="text/javascript"></script> -->
 <script>
 
-function Game( board ){
+try {
 
-	this.board = board;
-	this.entities = [];
-	this.addEntity = function( options ) {
-		this.entities.push( new Entity( options ) );
-	}
 
-	this.update = function() {
-		this.board.ctx.clearRect(0, 0, 320, 440);
-
-		for (var i = 0; i < this.entities.length; i++) {
-			this.entities[ i ].update( this );
-		}
-		requestAnimationFrame( this.update.bind(this) );
-	}
-	this.start = function() {
-		this.update();
-	}
-}
-
-function Entity( options ) {
-	
-	this.type = 'Generic Entity';
-	this.pos = {
-		x: null,
-		y: null,
-		z: null,
-	}
-	this.velocity = 0;
-	this.friction = 5/100;
-	this.bearing = Math.PI/2;//up
-	this.bearingChanged = false;
-	this.angle = Math.PI/2;//up
-	this.angleoffset = 90;
-	this.visible = false;
-	this.hp = Number.POSITIVE_INFINITY;//int, infinite if left undefined
-	this.ability = [];//array of functions
-	this.aggression = 0;// 0 <= % <= 1
-	this.vision = 0;// pixels
-	this.range = 0;// pixels/units
-	this.debug = false;
-	this.updates = 0;//times update function called
-	this.appearance = null;
-	this.stats = null;
-	
-	this.move = function() {
-		
-	};
-	
-	this.collision = function() {
-		
-	};
-	
-	this.draw = function() {
-		
-	};
-	
-	this.update = function() {
-		
-	};
-
-	for (var prop in options) {
-		if ( this.hasOwnProperty( prop ) ) {
-			this[ prop ] = options[ prop ];
-		}
-	}
-	
-	return this;
-}
-
-function Board() {
-	this.canvas = null;
-	this.ctx = null;
-}
-
-var board = new Board();
-board.canvas = document.getElementById('cv');
-board.ctx = board.canvas.getContext('2d');
-var g = new Game( board );
-
+// Helper functions
+///////////////////////
 function randomBytes( bytecount, base ) {
 	var bytes = "";
 	for (var i = 0; i < bytecount; i++) {
@@ -145,6 +69,34 @@ function colorLuminance(hex, lum) {
 	return rgb;
 }
 
+// Class definitions
+///////////////////////
+function Game( board ){
+
+	this.board = board;
+	this.entities = [];
+	this.addEntity = function( obj ) {
+		this.entities.push( obj );
+	}
+
+	this.update = function() {
+		this.board.ctx.clearRect(0, 0, 320, 440);
+
+		for (var i = 0; i < this.entities.length; i++) {
+			this.entities[ i ].update( this );
+		}
+		requestAnimationFrame( this.update.bind(this) );
+	}
+	this.start = function() {
+		this.update();
+	}
+}
+
+function Board() {
+	this.canvas = null;
+	this.ctx = null;
+}
+
 function Brick( posx, posy, w, h, vis ) {
 	this.type = 'brick';
 	this.pos = {
@@ -152,7 +104,7 @@ function Brick( posx, posy, w, h, vis ) {
 		y: posy,
 		z: 1
 	};
-	this.visible = vis > 0.5 ? true : false;
+	this.visible = true;
 	
 	this.appearance = {
 		color: randomColor(),
@@ -161,7 +113,8 @@ function Brick( posx, posy, w, h, vis ) {
 	};
 	
 	this.collision = function( game ) {
-			}
+	
+	}
 	
 	this.update = function( game ) {
 		if( this.visible ){
@@ -201,9 +154,6 @@ function Ball() {
 	this.visible = true;
 	this.hp = Number.POSITIVE_INFINITY;//int, infinite if left undefined
 	this.ability = [];//array of functions
-	this.aggression = 0;// 0 <= % <= 1
-	this.vision = 0;// pixels
-	this.range = 0;// pixels/units
 	this.debug = false;
 	this.updates = 0;//times update function called
 	this.appearance = {
@@ -212,15 +162,22 @@ function Ball() {
 	};
 	this.stats = {
 		velocityCountdown: 0,
+		originalVelocity: this.velocity
 	};
-	this.stats.originalVelocity = this.velocity;
 	
 	this.collision = {
+		vertical: function(){
+			this.bearingChanged = true;
+			this.bearing = Math.abs( 2 * Math.PI - this.bearing );
+		},
+		horizontal: function(){
+			this.bearingChanged = true;
+			this.bearing = Math.abs( Math.PI - this.bearing );
+		}
 		top: function(){
 			// Top Canvas Border
 			this.bearingChanged = true;
-			var bearingDiff = this.bearing - Math.PI;
-			this.bearing = Math.PI - bearingDiff;
+			this.bearing = 2 * Math.PI - this.bearing;
 			// this.bearing %= Math.PI * 2;
 		},
 		bottom: function(){
@@ -268,19 +225,23 @@ function Ball() {
 						var direction = "none";
 						if( ldist < smallest_val ){
 							smallest_val = ldist;
-							direction = "right";
+							//direction = "right";
+							direction = "horizontal";
 						}
 						if( rdist < smallest_val ){
 							smallest_val = rdist;
-							direction = "left";
+							//direction = "left";
+							direction = "horizontal";
 						}
 						if( tdist < smallest_val ){
 							smallest_val = tdist;
-							direction = "bottom";
+							//direction = "bottom";
+							direction = "vertical";
 						}
 						if( bdist < smallest_val ){
 							smallest_val = bdist;
-							direction = "top";
+							//direction = "top";
+							direction = "vertical";
 						}
 
 							console.log('activated ' + direction + ' collision function');
@@ -410,10 +371,19 @@ function Ball() {
 }
 
 
+// Initialize the game
+///////////////////////
+var board = new Board();
+board.canvas = document.getElementById('cv');
+board.ctx = board.canvas.getContext('2d');
+var g = new Game( board );
+
 for (var i = 0; i < 1; i++) {
 	g.addEntity( new Ball() );
 }
 
+
+/*
 var brickw = document.getElementById('cv').width / 10;
 var brickh = document.getElementById('cv').height / 30;
 
@@ -422,7 +392,7 @@ for (var rows = 0; rows < 15; rows++) {
 		g.addEntity( new Brick(brickw * i, brickh*rows, brickw, brickh, 1 ) );
 	}
 }
-
+*/
 
 
 /*
@@ -503,7 +473,9 @@ g.board.canvas.addEventListener('click', function(){
 	// g.entities = [];
 });
 
-
+} catch (error) {
+	alert(error);
+}
 </script>
 </body>
 </html>
