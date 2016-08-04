@@ -173,7 +173,7 @@ function Ball() {
 		horizontal: function(){
 			this.bearingChanged = true;
 			this.bearing = Math.abs( Math.PI - this.bearing );
-		}
+		},
 		top: function(){
 			// Top Canvas Border
 			this.bearingChanged = true;
@@ -383,7 +383,6 @@ for (var i = 0; i < 1; i++) {
 }
 
 
-/*
 var brickw = document.getElementById('cv').width / 10;
 var brickh = document.getElementById('cv').height / 30;
 
@@ -392,7 +391,6 @@ for (var rows = 0; rows < 15; rows++) {
 		g.addEntity( new Brick(brickw * i, brickh*rows, brickw, brickh, 1 ) );
 	}
 }
-*/
 
 
 /*
